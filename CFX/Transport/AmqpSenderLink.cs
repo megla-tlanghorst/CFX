@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Linq;
 using Amqp;
 using CFX.Utilities;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace CFX.Transport
@@ -29,7 +26,7 @@ namespace CFX.Transport
         protected static string GetLinkFileName(Uri uri, string address, string sourceHandle)
         {
             string result = uri.Host;
-            if (uri.Port != 0) result += string.Format("-{0}", uri.Port);
+            if (uri.Port != 0) result += $"-{uri.Port}";
             result += "-" + address;
             result += "-" + sourceHandle;
 

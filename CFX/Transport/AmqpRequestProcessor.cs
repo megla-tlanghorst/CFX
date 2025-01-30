@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using Amqp;
 using Amqp.Listener;
 using Amqp.Framing;
@@ -90,7 +88,7 @@ namespace CFX.Transport
 
             var listener = inboundHost.Listeners[0];
 
-            if (string.Compare(RequestUri.Scheme, "amqps", true) == 0)
+            if (string.Equals(RequestUri.Scheme, "amqps", StringComparison.OrdinalIgnoreCase))
             {
                 listener.SSL.Certificate = certificate;
                 listener.SSL.ClientCertificateRequired = true;

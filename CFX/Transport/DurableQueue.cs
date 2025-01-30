@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using CFX.Utilities;
 
 namespace CFX.Transport
@@ -12,7 +12,7 @@ namespace CFX.Transport
         public DurableQueue(string name)
             : base()
         {
-            dataName = System.IO.Path.GetTempPath();
+            dataName = Path.GetTempPath();
             string safeName = name.Replace('\\', '-');
             safeName = safeName.Replace('/', '-');
             dataName += (@"\" + safeName + ".cache");
@@ -30,7 +30,7 @@ namespace CFX.Transport
         private uint fileSignature { get { return 0xfe982422; } }
         private uint fileVersion { get { return pvtFileVersion; } set { pvtFileVersion = value; } }
         private uint pvtFileVersion = 1;
-        private object syncObject = new object();
+        private SemaphoreSlim syncSemaphore = new SemaphoreSlim(1, 1);
         private List<CFXEnvelope> queue = new List<CFXEnvelope>();
 
         private void Initialize()
@@ -58,9 +58,14 @@ namespace CFX.Transport
         {
             get
             {
-                lock (syncObject)
+                syncSemaphore.Wait();
+                try
                 {
-                    return (queue.Count < 1);
+                    return queue.Count < 1;
+                }
+                finally
+                {
+                    syncSemaphore.Release();
                 }
             }
         }
@@ -77,7 +82,8 @@ namespace CFX.Transport
         {
             bool result = false;
 
-            lock (syncObject)
+            syncSemaphore.Wait();
+            try
             {
                 try
                 {
@@ -113,6 +119,10 @@ namespace CFX.Transport
                     AppLog.Error(e);
                 }
             }
+            finally
+            {
+                syncSemaphore.Release();
+            }
 
             if (!result) queue.Clear();
             return result;
@@ -132,13 +142,13 @@ namespace CFX.Transport
                 else
                 {
                     // Write Signature
-                    dataWriter.Write(this.fileSignature);
+                    dataWriter.Write(fileSignature);
 
                     // Write File Version
-                    dataWriter.Write(this.fileVersion);
+                    dataWriter.Write(fileVersion);
 
                     // Write the Cache Size
-                    dataWriter.Write((int)0);
+                    dataWriter.Write(0);
 
                     dataWriter.Flush();
                 }
@@ -164,7 +174,8 @@ namespace CFX.Transport
         public bool Enqueue(CFXEnvelope obj)
         {
             bool result = false;
-            lock (syncObject)
+            syncSemaphore.Wait();
+            try
             {
                 try
                 {
@@ -189,6 +200,10 @@ namespace CFX.Transport
                 {
                     AppLog.Error(e);
                 }
+            }
+            finally
+            {
+                syncSemaphore.Release();
             }
             return result;
         }
@@ -232,7 +247,8 @@ namespace CFX.Transport
         {
             CFXEnvelope [] result = null;
 
-            lock (syncObject)
+            syncSemaphore.Wait();
+            try
             {
                 try
                 {
@@ -255,15 +271,24 @@ namespace CFX.Transport
                     AppLog.Error(e);
                 }
             }
+            finally
+            {
+                syncSemaphore.Release();
+            }
 
             return result;
         }
 
         public void Clear()
         {
-            lock (syncObject)
+            syncSemaphore.Wait();
+            try
             {
                 InternalClear();
+            }
+            finally
+            {
+                syncSemaphore.Release();
             }
         }
 
