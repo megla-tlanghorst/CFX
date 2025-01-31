@@ -40,6 +40,10 @@
     <EmbeddedResource Remove="HelpContent\**" />
     <None Remove="DataStructures\**" />
     <None Remove="HelpContent\**" />
+    <None Update="images\CFX_Logo.png">
+      <Pack>true</Pack>
+      <PackagePath>images/</PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -59,7 +63,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="CFX_Logo.png" Pack="true" PackagePath="images/" />
+    <None Include="images/CFX_Logo.png" Pack="true" PackagePath="images/" />
   </ItemGroup>
 
   <ItemGroup>

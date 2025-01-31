@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
+﻿using Newtonsoft.Json;
 
 namespace CFX.Structures
 {
@@ -10,11 +6,11 @@ namespace CFX.Structures
     /// <para>** NOTE: ADDED in CFX 1.7 **</para>
     /// Describes a resource location
     /// </summary>
-    [CFX.Utilities.CreatedVersion("1.7")]
+    [Utilities.CreatedVersion("1.7")]
     [JsonObject(ItemTypeNameHandling = TypeNameHandling.Auto)]
     public class ResourceLocation
     {
-        /// </summary>
+        /// <summary>
         /// The Resource on which the material is located (optional)
         /// If null, it is assumed that the Resource is the one associated to the source Endpoint of the message
         /// </summary>
