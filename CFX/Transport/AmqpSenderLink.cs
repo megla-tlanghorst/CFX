@@ -103,12 +103,12 @@ namespace CFX.Transport
                 {
                     isProcessing = true;
                     LogDebug("Triggering Processing...");
-                    Task.Run((Action)Process);
+                    _ = Task.Run(Process);
                 }
             }
         }
 
-        private async void Process()
+        private async Task Process()
         {
             while (!Queue.IsEmpty)
             {
@@ -123,7 +123,7 @@ namespace CFX.Transport
                         try
                         {
                             Message msg = AmqpUtilities.MessageFromEnvelopes(messages, AmqpCFXEndpoint.Codec.Value, Connection.Endpoint.SubjectFormat);
-                            SenderLink.Send(msg);
+                            await SenderLink.SendAsync(msg);
                             success = true;
                         }
                         catch (Exception ex)
@@ -134,7 +134,7 @@ namespace CFX.Transport
 
                         if (success)
                         {
-                            Queue.Dequeue(messages.Length);
+                            await Queue.DequeueAsync(messages.Length);
                         }
 
                         int remainingCount = Queue.Count;
@@ -143,7 +143,7 @@ namespace CFX.Transport
                         else
                             LogDebug($"Messages NOT transmitted.  {Queue.Count} messages remaining in spool.");
 
-                        if (remainingCount > 90) LogWarn(string.Format("Warning.  Spool has {0} buffered messages.", remainingCount));
+                        if (remainingCount > 90) LogWarn($"Warning.  Spool has {remainingCount} buffered messages.");
                     }
                 }
                 else

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using CFX.Utilities;
 
 namespace CFX.Transport
@@ -165,8 +166,8 @@ namespace CFX.Transport
 
         public void Close()
         {
-            if (dataWriter != null) dataWriter.Dispose();
-            if (dataReader != null) dataReader.Dispose();
+            dataWriter?.Dispose();
+            dataReader?.Dispose();
             dataWriter = null;
             dataReader = null;
         }
@@ -250,26 +251,56 @@ namespace CFX.Transport
             syncSemaphore.Wait();
             try
             {
-                try
+                result = PeekMany(count);
+                if (result != null)
                 {
-                    result = PeekMany(count);
-                    if (result != null)
+                    queue.RemoveRange(0, result.Length);
+                    if (queue.Count < 1)
                     {
-                        queue.RemoveRange(0, result.Length);
-                        if (queue.Count < 1)
-                        {
-                            InternalClear();
-                        }
-                        else
-                        {
-                            foreach (CFXEnvelope env in result) env.SetRecordTransmitted(dataWriter);
-                        }
+                        InternalClear();
+                    }
+                    else
+                    {
+                        foreach (CFXEnvelope env in result) env.SetRecordTransmitted(dataWriter);
                     }
                 }
-                catch (Exception e)
+            }
+            catch (Exception e)
+            {
+                AppLog.Error(e);
+            }
+            finally
+            {
+                syncSemaphore.Release();
+            }
+
+            return result;
+        }
+
+        public async Task<CFXEnvelope []> DequeueAsync(int count = 1)
+        {
+            CFXEnvelope [] result = null;
+
+            await syncSemaphore.WaitAsync();
+            try
+            {
+                result = PeekMany(count);
+                if (result != null)
                 {
-                    AppLog.Error(e);
+                    queue.RemoveRange(0, result.Length);
+                    if (queue.Count < 1)
+                    {
+                        InternalClear();
+                    }
+                    else
+                    {
+                        foreach (CFXEnvelope env in result) env.SetRecordTransmitted(dataWriter);
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                AppLog.Error(e);
             }
             finally
             {

@@ -22,48 +22,27 @@ namespace CFX.Transport
             sources = new ConcurrentDictionary<string, InternalSourceProcessor>();
         }
 
-        public AmqpCFXEndpoint Endpoint
-        {
-            private set;
-            get;
-        }
-                
+        public AmqpCFXEndpoint Endpoint { private set; get; }
+
         public Uri RequestUri
         {
-            get
-            {
-                return Endpoint?.RequestUri;
-            }
+            get { return Endpoint?.RequestUri; }
         }
 
-        public TimeSpan SendTimout
-        {
-            get;
-            set;
-        }
+        public TimeSpan SendTimout { get; set; }
 
         public string CFXHandle
         {
-            get
-            {
-                return Endpoint?.CFXHandle;
-            }
+            get { return Endpoint?.CFXHandle; }
         }
 
         public string RequestHandle
         {
-            get
-            {
-                return CFXHandle;
-            }
+            get { return CFXHandle; }
         }
 
-        public bool IsOpen
-        {
-            get;
-            private set;
-        }
-        
+        public bool IsOpen { get; private set; }
+
 
         public event OnRequestHandler OnRequestReceived;
         public event CFXMessageReceivedFromListenerHandler OnMessageReceivedFromListener;
@@ -80,7 +59,7 @@ namespace CFX.Transport
             if (string.IsNullOrEmpty(CFXHandle)) throw new ArgumentException("You must supply a CFX Handle");
 
             inboundHost = new ContainerHost(RequestUri);
-            
+
             if (!string.IsNullOrWhiteSpace(RequestUri.UserInfo))
                 inboundHost = new ContainerHost(new Uri[] { RequestUri }, null, RequestUri.UserInfo);
             else
@@ -114,7 +93,8 @@ namespace CFX.Transport
             listener.SSL.RemoteCertificateValidationCallback = ValidateServerCertificate;
 
             inboundHost.Open();
-            AppLog.Info($"Container host is listening on {RequestUri.Host}:{RequestUri.Port}.  User {RequestUri.UserInfo}");
+            AppLog.Info(
+                $"Container host is listening on {RequestUri.Host}:{RequestUri.Port}.  User {RequestUri.UserInfo}");
 
             inboundHost.RegisterRequestProcessor(RequestHandle, new InternalRequestProcessor(this));
             AppLog.Info($"Request processor is registered on {RequestHandle}");
@@ -123,7 +103,9 @@ namespace CFX.Transport
 
         public void AddListener(string targetAddress)
         {
-            if (!IsOpen) throw new Exception("The Endpoint must have an a request processor set up via the Open method in order to receive messages on a listener.");
+            if (!IsOpen)
+                throw new Exception(
+                    "The Endpoint must have an a request processor set up via the Open method in order to receive messages on a listener.");
 
             string t = targetAddress.ToUpper();
             if (listeners.ContainsKey(t)) throw new Exception("The specified targetAddress is already in use.");
@@ -148,7 +130,8 @@ namespace CFX.Transport
         public void RemoveListener(string targetAddress)
         {
             string t = targetAddress.ToUpper();
-            if (!listeners.ContainsKey(t)) throw new Exception("The specified targetAddress does not have an active listener.");
+            if (!listeners.ContainsKey(t))
+                throw new Exception("The specified targetAddress does not have an active listener.");
             inboundHost.UnregisterMessageProcessor(targetAddress);
             InternalMessageProcessor p;
             while (!listeners.TryRemove(targetAddress, out p)) Task.Yield();
@@ -156,7 +139,9 @@ namespace CFX.Transport
 
         public void AddSource(string sourceAddress)
         {
-            if (!IsOpen) throw new Exception("The Endpoint must have an a request processor set up via the Open method in order to receive messages on a listener.");
+            if (!IsOpen)
+                throw new Exception(
+                    "The Endpoint must have an a request processor set up via the Open method in order to receive messages on a listener.");
 
             string s = sourceAddress.ToUpper();
             if (sources.ContainsKey(s)) throw new Exception("The specified sourceAddress is already in use.");
@@ -181,7 +166,8 @@ namespace CFX.Transport
         public void RemoveSource(string sourceAddress)
         {
             string t = sourceAddress.ToUpper();
-            if (!sources.ContainsKey(t)) throw new Exception("The specified targetAddress does not have an active listener.");
+            if (!sources.ContainsKey(t))
+                throw new Exception("The specified targetAddress does not have an active listener.");
             inboundHost.UnregisterMessageProcessor(sourceAddress);
             InternalSourceProcessor p;
             while (!sources.TryRemove(sourceAddress, out p)) Task.Yield();
@@ -190,7 +176,8 @@ namespace CFX.Transport
         public void PublishToSource(string sourceAddress, IEnumerable<CFXEnvelope> messages)
         {
             string t = sourceAddress.ToUpper();
-            if (!sources.ContainsKey(t)) throw new Exception("The specified sourceAddress does not have an active source.");
+            if (!sources.ContainsKey(t))
+                throw new Exception("The specified sourceAddress does not have an active source.");
             InternalSourceProcessor p = sources[t];
             foreach (CFXEnvelope env in messages)
             {
@@ -201,7 +188,8 @@ namespace CFX.Transport
         public void PurgeSource(string sourceAddress)
         {
             string t = sourceAddress.ToUpper();
-            if (!sources.ContainsKey(t)) throw new Exception("The specified sourceAddress does not have an active source.");
+            if (!sources.ContainsKey(t))
+                throw new Exception("The specified sourceAddress does not have an active source.");
             InternalSourceProcessor p = sources[t];
             p.MessageQueue.Clear();
         }
@@ -225,6 +213,7 @@ namespace CFX.Transport
                 {
                     temp.UnregisterMessageProcessor(p.TargetAddress);
                 }
+
                 listeners.Clear();
 
                 foreach (InternalSourceProcessor p in sources.Values)
@@ -233,6 +222,7 @@ namespace CFX.Transport
                     p.MessageQueue.Close();
                     temp.UnregisterMessageProcessor(p.SourceAddress);
                 }
+
                 sources.Clear();
 
                 temp.UnregisterRequestProcessor(RequestHandle);
@@ -242,11 +232,13 @@ namespace CFX.Transport
             this.inboundHost = null;
         }
 
-        static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain,
+            SslPolicyErrors sslPolicyErrors)
         {
             if (certificate != null)
             {
-                Console.WriteLine("Received remote certificate. Subject: {0}, Policy errors: {1}", certificate.Subject, sslPolicyErrors);
+                Console.WriteLine("Received remote certificate. Subject: {0}, Policy errors: {1}", certificate.Subject,
+                    sslPolicyErrors);
             }
 
             return true;
@@ -273,19 +265,11 @@ namespace CFX.Transport
                 MessageQueue.Clear();
             }
 
-            public DurableQueue MessageQueue
-            { 
-                get;
-                set;
-            }
+            public DurableQueue MessageQueue { get; set; }
 
             private AmqpRequestProcessor parentProcessor;
 
-            public string SourceAddress
-            {
-                private set;
-                get;
-            }
+            public string SourceAddress { private set; get; }
 
             public void DisposeMessage(ReceiveContext receiveContext, DispositionContext dispositionContext)
             {
@@ -295,26 +279,24 @@ namespace CFX.Transport
             {
                 ReceiveContext ctx = null;
 
-                await Task.Run(() =>
+                try
                 {
-                    try
+                    if (MessageQueue.Count > 0)
                     {
-                        if (MessageQueue.Count > 0)
+                        Message m;
+                        CFXEnvelope[] envs = await MessageQueue.DequeueAsync();
+                        if (envs != null && envs.Length > 0)
                         {
-                            Message m;
-                            CFXEnvelope[] envs = MessageQueue.Dequeue();
-                            if (envs != null && envs.Length > 0)
-                            {
-                                m = AmqpUtilities.MessageFromEnvelope(envs[0], AmqpCFXEndpoint.Codec.Value, parentProcessor.Endpoint.SubjectFormat);
-                                ctx = new ReceiveContext(link, m);
-                            }
+                            m = AmqpUtilities.MessageFromEnvelope(envs[0], AmqpCFXEndpoint.Codec.Value,
+                                parentProcessor.Endpoint.SubjectFormat);
+                            ctx = new ReceiveContext(link, m);
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        AppLog.Error(ex);
-                    }
-                });
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Error(ex);
+                }
 
                 return ctx;
             }
@@ -347,12 +329,13 @@ namespace CFX.Transport
                 }
                 else
                 {
-                    requestContext.Complete(AmqpUtilities.MessageFromEnvelope(new CFXEnvelope(new CFX.NotSupportedResponse())
-                    {
-                        Source = processor.CFXHandle,
-                        Target = request.Source,
-                        RequestID = request.RequestID
-                    }));
+                    requestContext.Complete(AmqpUtilities.MessageFromEnvelope(
+                        new CFXEnvelope(new CFX.NotSupportedResponse())
+                        {
+                            Source = processor.CFXHandle,
+                            Target = request.Source,
+                            RequestID = request.RequestID
+                        }));
                 }
             }
         }
@@ -366,11 +349,7 @@ namespace CFX.Transport
             }
 
             private AmqpRequestProcessor parentProcessor;
-            public string TargetAddress
-            {
-                get;
-                private set;
-            }
+            public string TargetAddress { get; private set; }
 
             int IMessageProcessor.Credit
             {
@@ -412,11 +391,7 @@ namespace CFX.Transport
             }
 
             private AmqpRequestProcessor parentProcessor;
-            private string TargetAddress
-            {
-                get;
-                set;
-            }
+            private string TargetAddress { get; set; }
 
             public void Process(AttachContext attachContext)
             {
@@ -429,7 +404,8 @@ namespace CFX.Transport
                 if (attachContext.Attach.LinkName == "")
                 {
                     // how to fail the attach request
-                    attachContext.Complete(new Error(ErrorCode.InvalidField) { Description = "Empty link name not allowed." });
+                    attachContext.Complete(new Error(ErrorCode.InvalidField)
+                        { Description = "Empty link name not allowed." });
                 }
                 else if (attachContext.Link.Role)
                 {
@@ -439,11 +415,13 @@ namespace CFX.Transport
                         if (string.Compare(target.Address, TargetAddress, true) == 0)
                         {
                             // how to do manual link flow control
-                            attachContext.Complete(new InternalIncomingLinkEndpoint(parentProcessor, TargetAddress), 300);
+                            attachContext.Complete(new InternalIncomingLinkEndpoint(parentProcessor, TargetAddress),
+                                300);
                         }
                         else
                         {
-                            attachContext.Complete(new Error(ErrorCode.InvalidField) { Description = "Target address not found." });
+                            attachContext.Complete(new Error(ErrorCode.InvalidField)
+                                { Description = "Target address not found." });
                         }
                     }
                 }
@@ -493,7 +471,6 @@ namespace CFX.Transport
             {
             }
         }
-
     }
 
     /// <summary>
