@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -28,11 +29,22 @@ namespace CFX.Transport
         private string dataName = "";
         private BinaryWriter dataWriter = null;
         private BinaryReader dataReader = null;
-        private uint fileSignature { get { return 0xfe982422; } }
-        private uint fileVersion { get { return pvtFileVersion; } set { pvtFileVersion = value; } }
+
+        private uint fileSignature
+        {
+            get { return 0xfe982422; }
+        }
+
+        private uint fileVersion
+        {
+            get { return pvtFileVersion; }
+            set { pvtFileVersion = value; }
+        }
+
         private uint pvtFileVersion = 1;
         private SemaphoreSlim syncSemaphore = new SemaphoreSlim(1, 1);
         private List<CFXEnvelope> queue = new List<CFXEnvelope>();
+        private ConcurrentQueue<Action<CFXEnvelope>> listeners = new ConcurrentQueue<Action<CFXEnvelope>>();
 
         private void Initialize()
         {
@@ -43,7 +55,8 @@ namespace CFX.Transport
                 queue.Clear();
 
                 // Create and Open Cache Index and Data files
-                FileStream dataFile = new FileStream(dataName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
+                FileStream dataFile = new FileStream(dataName, FileMode.OpenOrCreate, FileAccess.ReadWrite,
+                    FileShare.ReadWrite);
                 dataReader = new BinaryReader(dataFile, System.Text.Encoding.UTF8);
                 dataWriter = new BinaryWriter(dataFile, System.Text.Encoding.UTF8);
                 ReadData();
@@ -71,13 +84,7 @@ namespace CFX.Transport
             }
         }
 
-        public int Count
-        {
-            get
-            {
-                return queue.Count;
-            }
-        }
+        public int Count => queue.Count;
 
         private bool ReadData()
         {
@@ -175,9 +182,16 @@ namespace CFX.Transport
         public bool Enqueue(CFXEnvelope obj)
         {
             bool result = false;
+
+            if (TryCallListener(obj))
+            {
+                return true;
+            }
+            
             syncSemaphore.Wait();
             try
             {
+                
                 try
                 {
                     obj.Transmitted = false;
@@ -206,6 +220,7 @@ namespace CFX.Transport
             {
                 syncSemaphore.Release();
             }
+
             return result;
         }
 
@@ -225,9 +240,9 @@ namespace CFX.Transport
             return result;
         }
 
-        public CFXEnvelope [] PeekMany(int maxCount)
+        public CFXEnvelope[] PeekMany(int maxCount)
         {
-            CFXEnvelope [] result = null;
+            CFXEnvelope[] result = null;
 
             try
             {
@@ -244,9 +259,9 @@ namespace CFX.Transport
             return result;
         }
 
-        public CFXEnvelope [] Dequeue(int count = 1)
+        public CFXEnvelope[] Dequeue(int count = 1)
         {
-            CFXEnvelope [] result = null;
+            CFXEnvelope[] result = null;
 
             syncSemaphore.Wait();
             try
@@ -277,9 +292,9 @@ namespace CFX.Transport
             return result;
         }
 
-        public async Task<CFXEnvelope []> DequeueAsync(int count = 1)
+        public async Task<CFXEnvelope[]> DequeueAsync(int count = 1)
         {
-            CFXEnvelope [] result = null;
+            CFXEnvelope[] result = null;
 
             await syncSemaphore.WaitAsync();
             try
@@ -308,6 +323,53 @@ namespace CFX.Transport
             }
 
             return result;
+        }
+
+        public async Task<CFXEnvelope> DequeueOrWaitAsync(CancellationToken ct = default)
+        {
+            TaskCompletionSource<CFXEnvelope> tcs = new TaskCompletionSource<CFXEnvelope>();
+            await syncSemaphore.WaitAsync(ct);
+            try
+            {
+                if (queue.Count > 0)
+                {
+                    CFXEnvelope element = queue.First();
+                    queue.RemoveAt(0);
+
+                    if (queue.Count <= 0)
+                    {
+                        InternalClear();
+                    }
+                    else
+                    {
+                        element.SetRecordTransmitted(dataWriter);
+                    }
+
+                    return element;
+                }
+                else
+                {
+                    ct.Register(() => tcs.TrySetCanceled(ct));
+                    listeners.Enqueue(tcs.SetResult);
+                }
+            }
+            finally
+            {
+                syncSemaphore.Release();
+            }
+            
+            return await tcs.Task;
+        }
+
+        private bool TryCallListener(CFXEnvelope element)
+        {
+            if (listeners.TryDequeue(out Action<CFXEnvelope> listener))
+            {
+                listener.Invoke(element);
+                return true;
+            }
+
+            return false;
         }
 
         public void Clear()

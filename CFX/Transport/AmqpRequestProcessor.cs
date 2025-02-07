@@ -176,9 +176,8 @@ namespace CFX.Transport
         public void PublishToSource(string sourceAddress, IEnumerable<CFXEnvelope> messages)
         {
             string t = sourceAddress.ToUpper();
-            if (!sources.ContainsKey(t))
+            if (!sources.TryGetValue(t, out InternalSourceProcessor p))
                 throw new Exception("The specified sourceAddress does not have an active source.");
-            InternalSourceProcessor p = sources[t];
             foreach (CFXEnvelope env in messages)
             {
                 p.MessageQueue.Enqueue(env);
@@ -284,13 +283,18 @@ namespace CFX.Transport
                     if (MessageQueue.Count > 0)
                     {
                         Message m;
-                        CFXEnvelope[] envs = await MessageQueue.DequeueAsync();
-                        if (envs != null && envs.Length > 0)
+                        // TODO: Is this legal? Check AMQP lib impls
+                        CFXEnvelope env = await MessageQueue.DequeueOrWaitAsync();
+                        if (env != null)
                         {
-                            m = AmqpUtilities.MessageFromEnvelope(envs[0], AmqpCFXEndpoint.Codec.Value,
+                            m = AmqpUtilities.MessageFromEnvelope(env, AmqpCFXEndpoint.Codec.Value,
                                 parentProcessor.Endpoint.SubjectFormat);
                             ctx = new ReceiveContext(link, m);
                         }
+                    }
+                    else
+                    {
+                        await Task.Delay(TimeSpan.FromMilliseconds(5));
                     }
                 }
                 catch (Exception ex)
